@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino Voltage Reader</title>
+<style>
+  body { font-family: sans-serif; background: #222; color: #fff; text-align:center; padding:50px; }
+  button { padding:10px 20px; font-size:16px; margin:10px; cursor:pointer; }
+  #voltage { font-size:36px; margin-top:20px; color:#0f0; }
+</style>
+</head>
+<body>
+
+<h1>Arduino Voltage Monitor</h1>
+<button id="connectBtn">Connect to Arduino</button>
+<div id="voltage">Voltage: -- V</div>
+
+<script>
+let port;
+let reader;
+
+async function connectArduino() {
+  if (!navigator.serial) {
+    alert("Web Serial API not supported. Use Chrome or Edge.");
+    return;
+  }
+
+  try {
+    // Ask user to select a port
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 }); // match Arduino sketch baud
+    const textDecoder = new TextDecoderStream();
+    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+    reader = textDecoder.readable.getReader();
+
+    readLoop();
+  } catch (err) {
+    console.error(err);
+    alert("Failed to connect: " + err);
+  }
+}
+
+async function readLoop() {
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) {
+      buffer += value;
+      let lines = buffer.split(/\r?\n/);
+      buffer = lines.pop();
+      for (let line of lines) {
+        line = line.trim();
+        if (line.startsWith("Input Voltage")) {
+          document.getElementById("voltage").textContent = line;
+        }
+      }
+    }
+  }
+}
+
+document.getElementById("connectBtn").addEventListener("click", connectArduino);
+</script>
+
+</body>
+</html>
